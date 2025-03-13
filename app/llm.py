@@ -1,5 +1,8 @@
 import math
 from typing import Dict, List, Optional, Union
+import json
+
+import aiohttp  # For asynchronous HTTP calls to Ollama
 
 import tiktoken
 from openai import (
@@ -355,6 +358,65 @@ class LLM:
         for msg in formatted_messages:
             if msg["role"] not in ROLE_VALUES:
                 raise ValueError(f"Invalid role: {msg['role']}")
+            # Validate required fields
+            if "role" not in message:
+                raise ValueError("Message dict must contain 'role' field")
+
+            # Process base64 images if present
+            if message.get("base64_image"):
+                # Initialize or convert content to appropriate format
+                if not message.get("content"):
+                    message["content"] = []
+                elif isinstance(message["content"], str):
+                    message["content"] = [{"type": "text", "text": message["content"]}]
+                elif isinstance(message["content"], list):
+                    # Convert string items to proper text objects
+                    message["content"] = [
+                        (
+                            {"type": "text", "text": item}
+                            if isinstance(item, str)
+                            else item
+                        )
+                        for item in message["content"]
+                    ]
+
+                # Add the image to content
+                message["content"].append(
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{message['base64_image']}"
+                        },
+                    }
+                )
+            #if isinstance(message, dict):
+                #if "role" not in message:
+                    #raise ValueError("Message dict must contain 'role' field")
+                #formatted_messages.append(message)
+            #elif isinstance(message, Message):
+                #formatted_messages.append(message.to_dict())
+            #else:
+                #raise TypeError(f"Unsupported message type: {type(message)}")
+
+        #for msg in formatted_messages:
+            #if msg["role"] not in ROLE_VALUES:
+                #raise ValueError(f"Invalid role: {msg['role']}")
+            #if "content" not in msg and "tool_calls" not in msg:
+                #raise ValueError("Message must contain either 'content' or 'tool_calls'")
+
+                # Remove the base64_image field
+                del message["base64_image"]
+
+            # Only include messages with content or tool_calls
+            if "content" in message or "tool_calls" in message:
+                formatted_messages.append(message)
+
+        # Validate all roles
+        invalid_roles = [
+            msg for msg in formatted_messages if msg["role"] not in ROLE_VALUES
+        ]
+        if invalid_roles:
+            raise ValueError(f"Invalid role: {invalid_roles[0]['role']}")
 
         return formatted_messages
 
@@ -429,6 +491,13 @@ class LLM:
                     **params, stream=False
                 )
 
+                #response = await self.client.chat.completions.create(
+                #    model=self.model,
+                #    messages=messages,
+                #    max_tokens=self.max_tokens,
+                #    temperature=temperature or self.temperature,
+                #    stream=False,
+                #)
                 if not response.choices or not response.choices[0].message.content:
                     raise ValueError("Empty or invalid response from LLM")
 
@@ -461,6 +530,12 @@ class LLM:
             completion_tokens = self.count_tokens(completion_text)
             logger.info(
                 f"Estimated completion tokens for streaming response: {completion_tokens}"
+            #response = await self.client.chat.completions.create(
+                #model=self.model,
+                #messages=messages,
+                #max_tokens=self.max_tokens,
+                #temperature=temperature or self.temperature,
+                #stream=True,
             )
             self.total_completion_tokens += completion_tokens
 
@@ -680,7 +755,6 @@ class LLM:
             Exception: For unexpected errors
         """
         try:
-            # Validate tool_choice
             if tool_choice not in TOOL_CHOICE_VALUES:
                 raise ValueError(f"Invalid tool_choice: {tool_choice}")
 
@@ -724,6 +798,45 @@ class LLM:
                 "tools": tools,
                 "tool_choice": tool_choice,
                 "timeout": timeout,
+            #if self.api_type == "ollama":
+                ## For Ollama, concatenate the messages' content into one prompt
+                #prompt = " ".join(msg.get("content", "") for msg in messages).strip()
+                #payload = {
+                    #"model": self.model,
+                    #"prompt": prompt,
+                    #"api_key": self.api_key,
+                    #"max_tokens": self.max_tokens,
+                    #"temperature": temperature or self.temperature,
+                #}
+                #url = f"{self.base_url}/api/generate"
+                #async with aiohttp.ClientSession() as session:
+                    #async with session.post(url, json=payload, timeout=timeout) as response:
+                        #if response.status != 200:
+                            #text = await response.text()
+                            #logger.error(f"Ollama API error: {response.status} {text}, url='{url}'")
+                            #raise Exception(f"Ollama API error: {response.status} {text}")
+                        ## Ollama returns NDJSON (each line is a JSON object)
+                        #text = await response.text()
+                        #result_text = ""
+                        #for line in text.strip().splitlines():
+                            #if line.strip():
+                                #try:
+                                    #obj = json.loads(line)
+                                    #result_text += obj.get("response", "")
+                                #except Exception as ex:
+                                    #logger.error(f"Failed to parse line: {line} with error: {ex}")
+                        #if not result_text:
+                            #raise ValueError("Empty response from Ollama API")
+                        #return Message.assistant_message(result_text)
+
+            #response = await self.client.chat.completions.create(
+                #model=self.model,
+                #messages=messages,
+                #temperature=temperature or self.temperature,
+                #max_tokens=self.max_tokens,
+                #tools=tools,
+                #tool_choice=tool_choice,
+                #timeout=timeout,
                 **kwargs,
             }
 
@@ -739,11 +852,12 @@ class LLM:
                 **params, stream=False
             )
 
-            # Check if response is valid
             if not response.choices or not response.choices[0].message:
                 print(response)
                 # raise ValueError("Invalid or empty response from LLM")
                 return None
+                #logger.error(response)
+                #raise ValueError("Invalid or empty response from LLM")
 
             # Update token counts
             self.update_token_count(
