@@ -24,7 +24,8 @@
 [llm] #OLLAMA:
 api_type = 'ollama'
 model = "qwq:32b-q4_K_M"
-base_url = "http://192.168.150.62:11434/v1"
+#base_url = "http://192.168.150.62:11434/v1"
+base_url = "http://192.168.150.62:11434"
 api_key = "ollama"
 max_tokens = 4096
 temperature = 0.0
@@ -32,7 +33,8 @@ temperature = 0.0
 [llm.vision] #OLLAMA VISION:
 api_type = 'ollama'
 model = "llama3.2-vision"
-base_url = "http://192.168.150.62:11434/v1"
+#base_url = "http://192.168.150.62:11434/v1"
+base_url = "http://192.168.150.62:11434"
 api_key = "ollama"
 max_tokens = 4096
 temperature = 0.0
@@ -58,8 +60,3 @@ temperature = 0.0
 # server = "http://proxy-server:port"
 # username = "proxy-username"
 # password = "proxy-password"
-
-# Optional configuration, Search settings.
-# [search]
-# Search engine for agent to use. Default is "Google", can be set to "Baidu" or "DuckDuckGo".
-#engine = "Google"

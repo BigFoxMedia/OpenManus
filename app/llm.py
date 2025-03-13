@@ -1,4 +1,7 @@
 from typing import Dict, List, Optional, Union
+import json
+
+import aiohttp  # For asynchronous HTTP calls to Ollama
 
 from openai import (
     APIError,
@@ -53,47 +56,24 @@ class LLM:
     def format_messages(messages: List[Union[dict, Message]]) -> List[dict]:
         """
         Format messages for LLM by converting them to OpenAI message format.
-
-        Args:
-            messages: List of messages that can be either dict or Message objects
-
-        Returns:
-            List[dict]: List of formatted messages in OpenAI format
-
-        Raises:
-            ValueError: If messages are invalid or missing required fields
-            TypeError: If unsupported message types are provided
-
-        Examples:
-            >>> msgs = [
-            ...     Message.system_message("You are a helpful assistant"),
-            ...     {"role": "user", "content": "Hello"},
-            ...     Message.user_message("How are you?")
-            ... ]
-            >>> formatted = LLM.format_messages(msgs)
         """
         formatted_messages = []
 
         for message in messages:
             if isinstance(message, dict):
-                # If message is already a dict, ensure it has required fields
                 if "role" not in message:
                     raise ValueError("Message dict must contain 'role' field")
                 formatted_messages.append(message)
             elif isinstance(message, Message):
-                # If message is a Message object, convert it to dict
                 formatted_messages.append(message.to_dict())
             else:
                 raise TypeError(f"Unsupported message type: {type(message)}")
 
-        # Validate all messages have required fields
         for msg in formatted_messages:
             if msg["role"] not in ROLE_VALUES:
                 raise ValueError(f"Invalid role: {msg['role']}")
             if "content" not in msg and "tool_calls" not in msg:
-                raise ValueError(
-                    "Message must contain either 'content' or 'tool_calls'"
-                )
+                raise ValueError("Message must contain either 'content' or 'tool_calls'")
 
         return formatted_messages
 
@@ -110,23 +90,8 @@ class LLM:
     ) -> str:
         """
         Send a prompt to the LLM and get the response.
-
-        Args:
-            messages: List of conversation messages
-            system_msgs: Optional system messages to prepend
-            stream (bool): Whether to stream the response
-            temperature (float): Sampling temperature for the response
-
-        Returns:
-            str: The generated response
-
-        Raises:
-            ValueError: If messages are invalid or response is empty
-            OpenAIError: If API call fails after retries
-            Exception: For unexpected errors
         """
         try:
-            # Format system and user messages
             if system_msgs:
                 system_msgs = self.format_messages(system_msgs)
                 messages = system_msgs + self.format_messages(messages)
@@ -134,7 +99,6 @@ class LLM:
                 messages = self.format_messages(messages)
 
             if not stream:
-                # Non-streaming request
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
@@ -146,7 +110,6 @@ class LLM:
                     raise ValueError("Empty or invalid response from LLM")
                 return response.choices[0].message.content
 
-            # Streaming request
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -187,49 +150,59 @@ class LLM:
         system_msgs: Optional[List[Union[dict, Message]]] = None,
         timeout: int = 300,
         tools: Optional[List[dict]] = None,
-        tool_choice: TOOL_CHOICE_TYPE = ToolChoice.AUTO, # type: ignore
+        tool_choice: TOOL_CHOICE_TYPE = ToolChoice.AUTO,  # type: ignore
         temperature: Optional[float] = None,
         **kwargs,
     ):
         """
         Ask LLM using functions/tools and return the response.
-
-        Args:
-            messages: List of conversation messages
-            system_msgs: Optional system messages to prepend
-            timeout: Request timeout in seconds
-            tools: List of tools to use
-            tool_choice: Tool choice strategy
-            temperature: Sampling temperature for the response
-            **kwargs: Additional completion arguments
-
-        Returns:
-            ChatCompletionMessage: The model's response
-
-        Raises:
-            ValueError: If tools, tool_choice, or messages are invalid
-            OpenAIError: If API call fails after retries
-            Exception: For unexpected errors
         """
         try:
-            # Validate tool_choice
             if tool_choice not in TOOL_CHOICE_VALUES:
                 raise ValueError(f"Invalid tool_choice: {tool_choice}")
 
-            # Format messages
             if system_msgs:
                 system_msgs = self.format_messages(system_msgs)
                 messages = system_msgs + self.format_messages(messages)
             else:
                 messages = self.format_messages(messages)
 
-            # Validate tools if provided
             if tools:
                 for tool in tools:
                     if not isinstance(tool, dict) or "type" not in tool:
                         raise ValueError("Each tool must be a dict with 'type' field")
 
-            # Set up the completion request
+            if self.api_type == "ollama":
+                # For Ollama, concatenate the messages' content into one prompt
+                prompt = " ".join(msg.get("content", "") for msg in messages).strip()
+                payload = {
+                    "model": self.model,
+                    "prompt": prompt,
+                    "api_key": self.api_key,
+                    "max_tokens": self.max_tokens,
+                    "temperature": temperature or self.temperature,
+                }
+                url = f"{self.base_url}/api/generate"
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=payload, timeout=timeout) as response:
+                        if response.status != 200:
+                            text = await response.text()
+                            logger.error(f"Ollama API error: {response.status} {text}, url='{url}'")
+                            raise Exception(f"Ollama API error: {response.status} {text}")
+                        # Ollama returns NDJSON (each line is a JSON object)
+                        text = await response.text()
+                        result_text = ""
+                        for line in text.strip().splitlines():
+                            if line.strip():
+                                try:
+                                    obj = json.loads(line)
+                                    result_text += obj.get("response", "")
+                                except Exception as ex:
+                                    logger.error(f"Failed to parse line: {line} with error: {ex}")
+                        if not result_text:
+                            raise ValueError("Empty response from Ollama API")
+                        return Message.assistant_message(result_text)
+
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -241,9 +214,8 @@ class LLM:
                 **kwargs,
             )
 
-            # Check if response is valid
             if not response.choices or not response.choices[0].message:
-                print(response)
+                logger.error(response)
                 raise ValueError("Invalid or empty response from LLM")
 
             return response.choices[0].message
