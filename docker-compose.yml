@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  openmanus:
+  openmanus-api:
     build: .
     volumes:
       - .:/app
@@ -10,3 +10,17 @@ services:
       - "8000:8000"
     tty: true
     stdin_open: true
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  openmanus-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    volumes:
+      - ./frontend:/app
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    tty: true
+    stdin_open: true
+    command: ["serve", "-s", "dist", "-l", "3000"]

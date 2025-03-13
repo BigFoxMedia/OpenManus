@@ -23,7 +23,8 @@
 
 [llm] #OLLAMA:
 api_type = 'ollama'
-model = "qwq:32b-q4_K_M"
+#model = "qwq:32b-q4_K_M"
+model = "qwen2.5-coder:32b"
 #base_url = "http://192.168.150.62:11434/v1"
 base_url = "http://192.168.150.62:11434"
 api_key = "ollama"

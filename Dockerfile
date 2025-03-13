@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git curl \
     && rm -rf /var/lib/apt/lists/* \
     && (command -v uv >/dev/null 2>&1 || pip install --no-cache-dir uv)
 
+# Copy application source code
 COPY . .
 
 RUN uv pip install --system -r requirements.txt
