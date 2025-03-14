@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 // Determine the API base URL using Vite's environment variables
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://openmanus-api:8000";
+console.log("Environment:", import.meta.env);
 console.log("API Base URL:", apiBaseUrl);
 
 function App() {
