@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
+// Determine the API base URL using Vite's environment variables
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
+
 function App() {
   const [prompt, setPrompt] = useState("");
   const [result, setResult] = useState("");
@@ -11,7 +14,7 @@ function App() {
     setLoading(true);
     setResult("");
     try {
-      const res = await fetch("/run", {  // Using relative URL (see proxy config below)
+      const res = await fetch(apiBaseUrl + "/run", {  // Using relative URL (see proxy config below)
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt })
@@ -31,7 +34,7 @@ function App() {
 
   // Set up Server-Sent Events to receive logs.
   useEffect(() => {
-    const eventSource = new EventSource("/logs"); // proxy will forward to API service
+    const eventSource = new EventSource(apiBaseUrl + "/logs"); // proxy will forward to API service
     eventSource.onmessage = (event) => {
       setLogs(prev => prev + event.data + "\n");
     };

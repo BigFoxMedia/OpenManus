@@ -23,12 +23,12 @@
 
 [llm] #OLLAMA:
 api_type = 'ollama'
-#model = "qwq:32b-q4_K_M"
-model = "qwen2.5-coder:32b"
+model = "qwq:32b-q4_K_M"
+# model = "qwen2.5-coder:32b"
 #base_url = "http://192.168.150.62:11434/v1"
 base_url = "http://192.168.150.62:11434"
 api_key = "ollama"
-max_tokens = 4096
+max_tokens = 40960
 temperature = 0.0
 
 [llm.vision] #OLLAMA VISION:
@@ -37,17 +37,17 @@ model = "llama3.2-vision"
 #base_url = "http://192.168.150.62:11434/v1"
 base_url = "http://192.168.150.62:11434"
 api_key = "ollama"
-max_tokens = 4096
+max_tokens = 40960
 temperature = 0.0
 
 # Optional configuration for specific browser configuration
-# [browser]
+[browser]
 # Whether to run browser in headless mode (default: false)
-#headless = false
+headless = true
 # Disable browser security features (default: true)
-#disable_security = true
+disable_security = true
 # Extra arguments to pass to the browser
-#extra_chromium_args = []
+extra_chromium_args = []
 # Path to a Chrome instance to use to connect to your normal browser
 # e.g. '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 #chrome_instance_path = ""
