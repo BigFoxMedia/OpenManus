@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 // Determine the API base URL using Vite's environment variables
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://openmanus-api:8000";
+console.log("API Base URL:", apiBaseUrl);
 
 function App() {
   const [prompt, setPrompt] = useState("");
@@ -14,16 +15,25 @@ function App() {
     setLoading(true);
     setResult("");
     try {
+      console.log('API Base URL:', apiBaseUrl);
+      console.log('Full URL:', apiBaseUrl + "/run");
       const res = await fetch(apiBaseUrl + "/run", {  // Using relative URL (see proxy config below)
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt })
       });
-      const data = await res.json();
-      if (res.ok) {
-        setResult(data.result);
-      } else {
-        setResult(`Error: ${data.detail || data.error}`);
+      console.log('Response status:', res.status);
+      const data = await res.text(); // Change to .text() to see full response
+      console.log('Response data:', data);
+      try {
+        const jsonData = JSON.parse(data);
+        if (res.ok) {
+          setResult(jsonData.result);
+        } else {
+          setResult(`Error: ${jsonData.detail || jsonData.error}`);
+        }
+      } catch (parseError) {
+        setResult(`Parsing Error: ${parseError.message}\nRaw Response: ${data}`);
       }
     } catch (error) {
       setResult(`Error: ${error.message}`);
