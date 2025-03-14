@@ -6,8 +6,8 @@ export default defineConfig({
 	server: {
 		port: 3000,
 		proxy: {
-			'/run': 'http://0.0.0.0:8000',
-			'/logs': 'http://0.0.0.0:8000'
+			'/run': 'http://openmanus-api:8000',
+			'/logs': 'http://openmanus-api:8000'
 		},
 	},
 	build: {

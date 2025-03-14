@@ -755,6 +755,7 @@ class LLM:
             Exception: For unexpected errors
         """
         try:
+            # Validate tool_choice
             if tool_choice not in TOOL_CHOICE_VALUES:
                 raise ValueError(f"Invalid tool_choice: {tool_choice}")
 
